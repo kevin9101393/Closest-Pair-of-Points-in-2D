@@ -11,9 +11,9 @@ typedef struct{
 
 int comparePointsX(const void *pointA, const void *pointB);
 int comparePointsY(const void *pointA, const void *pointB);
-double min(double a, double b);
-double findMinDist(point2D *points, int len, point2D *closestP1, point2D *closestP2);
-double findMinDistStrip(point2D *points, int len, double minDist, point2D *closestP1, point2D *closestP2);
+double findMinDist(point2D *points, int len);
+double findMinDistStrip(point2D *points, int len, double minDist);
+void findMinDistOSqr(point2D *points, int len);
 
 int main(void){
 
@@ -32,12 +32,17 @@ int main(void){
         printf("x = %.1f, y = %.1f\n", points[i].x, points[i].y);
     }
 
+    //use O^2 method as answer
+    findMinDistOSqr(points, numRandomPoints);
+
+
     // sort the array according to the x axis
     qsort(points, sizeof(points)/sizeof(point2D), sizeof(point2D), comparePointsX);
 
-    point2D closestP1;
-    point2D closestP2;
-    double minDistance = findMinDist(points, numRandomPoints, &closestP1, &closestP2);
+    double minDistance = findMinDist(points, numRandomPoints);
+
+    printf("Divide-and-Conquer result:\n");
+    printf("The smallest distance is %.2f\n", minDistance);
 
     return 0;
 }
@@ -50,32 +55,27 @@ int comparePointsY(const void *pointA, const void *pointB){
     return (((point2D *)pointA)->y - ((point2D *)pointB)->y) * 10;
 }
 
-double min(double a, double b){
-    if(a < b)
-        return a;
-    else
-        return b;
-}
+double findMinDist(point2D *points, int len){
 
-double findMinDist(point2D *points, int len, point2D *closestP1, point2D *closestP2){
-
-    printf("\n\n");
-    for(int i = 0 ; i<len ; i++)
-        printf("x = %.1f, y = %.1f\n", points[i].x, points[i].y);
+    // printf("\n\n");
+    // for(int i = 0 ; i<len ; i++)
+    //     printf("x = %.1f, y = %.1f\n", points[i].x, points[i].y);
 
     if(len == 2){
-        closestP1->x = points[0].x;
-        closestP1->y = points[0].y;
-        closestP2->x = points[1].x;
-        closestP2->y = points[1].y;
         return sqrt(pow(points[0].x-points[1].x, 2) + pow(points[0].y-points[1].y, 2));
     }
     else if(len == 1)
         return DBL_MAX;
     else{
-        // double minDistL = findMinDist(points, len/2, closestP1, closestP2);
-        // double minDistR = findMinDist(points+len/2, len-len/2, closestP1, closestP2);
-        // double d = min(minDistL, minDistR);
+        double minDistL = findMinDist(points, len/2);
+        double minDistR = findMinDist(points+len/2, len-len/2);
+        double d;
+        if(minDistL < minDistR){
+            d = minDistL;
+        }
+        else{
+            d = minDistR;
+        }
 
         // calculate median of x-coordinates
         float median = 0;
@@ -83,7 +83,7 @@ double findMinDist(point2D *points, int len, point2D *closestP1, point2D *closes
             median += points[i].x;
         median /= len;
         
-        double d = 2;
+        // double d = 2;
         int start, end;
         for(int i = 0 ; i<len ; i++){
             if(points[i].x >= median - (float)d){
@@ -92,46 +92,69 @@ double findMinDist(point2D *points, int len, point2D *closestP1, point2D *closes
             }
         }
         for (int i = start+1; i < len; i++){
+            // printf("points[i].x = %.1f\n", points[i].x);
+            // printf("median + (float)d = %.1f\n", median + (float)d); 
             if (points[i].x > median + (float)d){
-                end = i-1;
                 break;
             }
+            end = i;
         }
+        // printf("len out = %d\n", len);
+        // printf("start = %d\n", start);
+        // printf("end = %d\n", end);
         // printf("len = %d\n", end-start+1);
         // printf("median = %.2f\n", median);
-        double minDistStrip = findMinDistStrip(points+start, end-start+1, d, closestP1, closestP2);
+        double minDistStrip = findMinDistStrip(points+start, end-start+1, d);
+        if(minDistStrip < d){
+            return minDistStrip;
+        }
+        else{
+            return d;
+        }
     }
     
     return 0;
 }
 
-double findMinDistStrip(point2D *points, int len, double minDist, point2D *closestP1, point2D *closestP2){
+double findMinDistStrip(point2D *points, int len, double minDist){
 
     double outputDist = minDist;
-
-    // printf("\n\n");
-    // for (int i = 0; i < len; i++)
-    //     printf("x = %.1f, y = %.1f\n", points[i].x, points[i].y);
-
+    
     // sort according to the y coordinate
     qsort(points, len, sizeof(point2D), comparePointsY);
-
-    // printf("\n\n");
-    // for (int i = 0; i < len; i++)
-    //     printf("x = %.1f, y = %.1f\n", points[i].x, points[i].y);
 
     for(int i = 0 ; i<len ; i++){
         for(int j = i+1 ; j<len && (points[j].y-points[i].y)<minDist ; j++){
             double dist = sqrt(pow(points[i].x-points[j].x, 2) + pow(points[i].y-points[j].y, 2));
             if(dist < outputDist){
                 outputDist = dist;
-                closestP1->x = points[i].x;
-                closestP1->y = points[i].y;
-                closestP2->x = points[j].x;
-                closestP2->y = points[j].y;
             }
         }
     }
 
     return outputDist;
+}
+
+void findMinDistOSqr(point2D *points, int len){
+    double minDist = DBL_MAX;
+    point2D pointA, pointB;
+    for(int i = 0 ; i<len ; i++){
+        for(int j = 0 ; j<len ; j++){
+            if(j == i)
+                continue;
+            else{
+                double dist = sqrt(pow(points[i].x - points[j].x, 2) + pow(points[i].y - points[j].y, 2));
+                if(dist < minDist){
+                    minDist = dist;
+                    pointA.x = points[i].x;
+                    pointA.y = points[i].y;
+                    pointB.x = points[j].x;
+                    pointB.y = points[j].y;
+                }
+            }
+        }
+    }
+    printf("The smallest distance is %.2f\n", minDist);
+    printf("x = %.1f, y = %.1f\n", pointA.x, pointA.y);
+    printf("x = %.1f, y = %.1f\n", pointB.x, pointB.y);
 }
